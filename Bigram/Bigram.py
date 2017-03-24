@@ -7,21 +7,21 @@ from sklearn.utils import shuffle
 
 
 class Bigram:
-	def __init__(self, V, D):
+	def __init__(self, V, D, eta=0.01):
 		self.V = V # vocab size
 		self.D = D # hidden layer size
 		self.W_ih = np.random.normal(0,0.1,size=(V,D)) # input to hidden weight matrix(VxD)
 		self.W_ho = np.random.normal(0,0.1,size=(D,V)) # hidden to output weight matrix(DxV)
-		print self.W_ih
+		self.eta = eta
+
 	# X : input com N ids que serão transformados em one hot vectors (NxV) 
 	# y : output com N ids que serão transformados em one hot vectors (NxV)
 	# X = w(t-1) e y = w(t)
 	def fit(self,X,y,batch_size=None, epochs=10000):
 		#Caso não tenha um valor para o batch, utiliza todos os dados
 		(samples, features) = X.shape
-		if batch_size is None:
+		if batch_size is None or batch_size > samples:
 			batch_size = samples
-		features += 1
 
 		#Inicializa na época 0
 		epoch = 0
@@ -30,17 +30,20 @@ class Bigram:
 			#Permutar input e output (Treinar aleatóriamente a cada epoca)
 			X, y = shuffle(X, y, random_state=0)
 			#Extrai batch_size samples
-			train_data = X[0:batch_size,:]
-			train_label = y[0:batch_size,:]
+			train_data = X[0:batch_size+1,:]
+			train_label = y[0:batch_size+1,:]
 
-			loss = 0.0
 			#Foward propagation
 			z1 = np.dot(train_data,self.W_ih)
+			z1 = np.where(z1>0.0, 1.0, 0.0)
 			z2 = np.dot(z1,self.W_ho)
-			print z2
 			a2 = self.activation(z2, "softmax")
 
-			
+			#Calcular o erro
+			loss = 0.0
+			for sample, idx in enumerate(train_label.argmax(axis=1)):
+				loss -= np.log(a2[sample,idx])
+			loss = loss.sum()/batch_size
 			print('epoch: {}    loss: {}'.format(str(epoch), str(loss)))
 
 			#Backprop
@@ -49,20 +52,19 @@ class Bigram:
 			error_z1 = error_a2.dot(self.W_ho.T)
 			dW_ih = train_data.T.dot(error_z1)
 
-			self.W_ho -= dW_ho/batch_size
-			self.W_ih -= dW_ih/batch_size
+			self.W_ho -= self.eta*dW_ho/batch_size
+			self.W_ih -= self.eta*dW_ih/batch_size
 
 			epoch += 1
 		print self.W_ho
 
 	def activation(self, x, function="logistic"):
-		print x
-		#print np.exp(x).sum(axis=1)
-
 		if function == "logistic":
 			return 1 / (1 + np.exp(-x))
 		if function == "softmax":
 			return np.exp(x)/np.exp(x).sum(axis=0)
+
+#COMENTÁRIOOOOO
 
 
 
@@ -101,15 +103,18 @@ with open('input.txt', 'r') as f:
 	read_data = f.read()
 
 V = 2000
-data, count, dictionary, reverse_dictionary = build_dataset(read_data, V)
+data_id, count, dictionary, reverse_dictionary = build_dataset(read_data, V)
 
 # data = ids2onehot(data, V)
-data = onehot(data, V)
+data = onehot(data_id, V)
 X = data[:-1]
 y = data[1:]
 
 print X.shape
 print y.shape
 D = 200
-Model = Bigram(V, D)
-Model.fit(X,y,100,100)
+eta = 0.0001
+batch_size = 10
+epochs = 100
+Model = Bigram(V,D,eta)
+Model.fit(X,y,batch_size,epochs)

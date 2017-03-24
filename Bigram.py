@@ -64,6 +64,8 @@ class Bigram:
 		if function == "softmax":
 			return np.exp(x)/np.exp(x).sum(axis=0)
 
+#COMENTÁRIOOOOO
+
 
 
 def onehot(keys, V):

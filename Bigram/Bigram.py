@@ -19,23 +19,32 @@ class Bigram:
 	# X = w(t-1) e y = w(t)
 	def fit(self,X,y,batch_size=None, epochs=10000):
 		#Caso não tenha um valor para o batch, utiliza todos os dados
-		(samples, features) = X.shape
+		samples = len(X)
 		if batch_size is None or batch_size > samples:
 			batch_size = samples
 
+		#Para garantir uma divisão exata dos dados
+		batch_size += samples%batch_size
+
 		#Inicializa na época 0
 		epoch = 0
+		idx = 0
 		while epoch < epochs:
 
 			#Permutar input e output (Treinar aleatóriamente a cada epoca)
-			X, y = shuffle(X, y, random_state=0)
-			#Extrai batch_size samples
-			train_data = X[0:batch_size+1,:]
-			train_label = y[0:batch_size+1,:]
+			# LOL neste tipo de problema não faz sentido permutar
+			# visto que a ordem importa
+			# X, y = shuffle(X, y, random_state=0)
+			
+			#para treinar a rede nessa época
+			train_data = self.onehot(X[idx:idx+batch_size])
+			train_label = self.onehot(y[idx:idx+batch_size])
+			#Resetar o contador quando idx == samples
+			idx += batch_size
+			idx = idx%samples
 
 			#Foward propagation
 			z1 = np.dot(train_data,self.W_ih)
-			z1 = np.where(z1>0.0, 1.0, 0.0)
 			z2 = np.dot(z1,self.W_ho)
 			a2 = self.activation(z2, "softmax")
 
@@ -43,7 +52,7 @@ class Bigram:
 			loss = 0.0
 			for sample, idx in enumerate(train_label.argmax(axis=1)):
 				loss -= np.log(a2[sample,idx])
-			loss = loss.sum()/batch_size
+			loss /= batch_size
 			print('epoch: {}    loss: {}'.format(str(epoch), str(loss)))
 
 			#Backprop
@@ -54,6 +63,9 @@ class Bigram:
 
 			self.W_ho -= self.eta*dW_ho/batch_size
 			self.W_ih -= self.eta*dW_ih/batch_size
+			# #Truncar para evitar overflow
+			# self.W_ho = np.clip(self.W_ho, -5, 5)
+			# self.W_ih = np.clip(self.W_ih, -5, 5)
 
 			epoch += 1
 		print self.W_ho
@@ -64,18 +76,52 @@ class Bigram:
 		if function == "softmax":
 			return np.exp(x)/np.exp(x).sum(axis=0)
 
+	def onehot(self, keys):
+		samples = len(keys)
+		vectors = np.zeros((samples,self.V))
+
+		for i in xrange(samples):
+			vectors[i,keys[i]] = 1.0
+
+		return vectors
+
 #COMENTÁRIOOOOO
 
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+
+def plot_with_labels(low_dim_embs, labels, filename='tsne.png'):
+  assert low_dim_embs.shape[0] >= len(labels), "More labels than embeddings"
+  plt.figure(figsize=(24, 24))  #in inches
+
+  for i, label in enumerate(labels):
+    x, y = low_dim_embs[i,:]
+    plt.scatter(x, y, color="green")
+    plt.annotate(label,
+                 xy=(x, y),
+                 xytext=(5, 2),
+                 textcoords='offset points',
+                 ha='right',
+                 va='bottom')
+
+  plt.savefig("imageTSNE/"+filename)
+
+def saveTSNE(final_embeddings, reverse_dictionary):
+	try:
+		from sklearn.manifold import TSNE
+
+		tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
+		plot_only = 500
+		low_dim_embs = tsne.fit_transform(final_embeddings[:plot_only,:])
+		labels = [reverse_dictionary[i] for i in xrange(plot_only)]
+		plot_with_labels(low_dim_embs, labels, filename="tsne.png")
+
+	except ImportError:
+		print("Please install sklearn, matplotlib, and scipy to visualize embeddings.")
 
 
-def onehot(keys, V):
-	samples = len(keys)
-	vectors = np.zeros((samples,V))
 
-	for i in xrange(samples):
-		vectors[i,keys[i]] = 1.0
 
-	return vectors
 
 
 def build_dataset(words, vocabulary_size):
@@ -99,22 +145,25 @@ def build_dataset(words, vocabulary_size):
 
 
 # Get corpus text
-with open('input.txt', 'r') as f:
-	read_data = f.read()
+import zipfile
+with zipfile.ZipFile('input.zip', 'r') as myzip:
+    read_data = myzip.read('input').split()
 
-V = 2000
-data_id, count, dictionary, reverse_dictionary = build_dataset(read_data, V)
-
-# data = ids2onehot(data, V)
-data = onehot(data_id, V)
+# Tamanho do vocabulário:
+V = 1000
+# Preprocessamento do corpus
+data, count, dictionary, reverse_dictionary = build_dataset(read_data, V)
+# Transformar data em numpy array para otimizar as contas
+data = np.array(data)
+# Como o output é a palavra seguinte y é a próxima palavra
 X = data[:-1]
 y = data[1:]
-
-print X.shape
-print y.shape
+# Hiperparametros
 D = 200
-eta = 0.0001
-batch_size = 10
-epochs = 100
+eta = 0.3
+batch_size = 500
+epochs = 50
+# Criando o modelo
 Model = Bigram(V,D,eta)
 Model.fit(X,y,batch_size,epochs)
+saveTSNE(Model.W_ih, reverse_dictionary)

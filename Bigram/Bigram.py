@@ -64,25 +64,26 @@ class Bigram:
 			self.W_ho -= self.eta*dW_ho/batch_size
 			self.W_ih -= self.eta*dW_ih/batch_size
 			# #Truncar para evitar overflow
-			# self.W_ho = np.clip(self.W_ho, -5, 5)
-			# self.W_ih = np.clip(self.W_ih, -5, 5)
+			self.W_ho = np.clip(self.W_ho, -0.5, 0.5)
+			self.W_ih = np.clip(self.W_ih, -0.5, 0.5)
 
 			epoch += 1
-		print self.W_ho
+		print self.W_ih
 
 	def activation(self, x, function="logistic"):
 		if function == "logistic":
 			return 1 / (1 + np.exp(-x))
 		if function == "softmax":
-			return np.exp(x)/np.exp(x).sum(axis=0)
+			for idx, sample in enumerate(x):
+				exp = np.exp(sample)
+				x[idx,:] = exp / exp.sum()
+			return x			
 
 	def onehot(self, keys):
 		samples = len(keys)
 		vectors = np.zeros((samples,self.V))
-
 		for i in xrange(samples):
 			vectors[i,keys[i]] = 1.0
-
 		return vectors
 
 #COMENTÁRIOOOOO
@@ -146,11 +147,11 @@ def build_dataset(words, vocabulary_size):
 
 # Get corpus text
 import zipfile
-with zipfile.ZipFile('input.zip', 'r') as myzip:
-    read_data = myzip.read('input').split()
+with zipfile.ZipFile('text8.zip', 'r') as myzip:
+    read_data = myzip.read('text8').split()
 
 # Tamanho do vocabulário:
-V = 1000
+V = 10000
 # Preprocessamento do corpus
 data, count, dictionary, reverse_dictionary = build_dataset(read_data, V)
 # Transformar data em numpy array para otimizar as contas
@@ -159,8 +160,8 @@ data = np.array(data)
 X = data[:-1]
 y = data[1:]
 # Hiperparametros
-D = 200
-eta = 0.3
+D = 300
+eta = 15
 batch_size = 500
 epochs = 50
 # Criando o modelo

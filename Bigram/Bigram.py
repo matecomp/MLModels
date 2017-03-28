@@ -10,8 +10,8 @@ class Bigram:
 	def __init__(self, V, D, eta=0.01):
 		self.V = V # vocab size
 		self.D = D # hidden layer size
-		self.W_ih = np.random.normal(0,0.1,size=(V,D)) # input to hidden weight matrix(VxD)
-		self.W_ho = np.random.normal(0,0.1,size=(D,V)) # hidden to output weight matrix(DxV)
+		self.W_ih = np.random.normal(0,0.1,size=(V,D)).astype(np.float64) # input to hidden weight matrix(VxD)
+		self.W_ho = np.random.normal(0,0.1,size=(D,V)).astype(np.float64) # hidden to output weight matrix(DxV)
 		self.eta = eta
 
 	# X : input com N ids que serão transformados em one hot vectors (NxV) 
@@ -81,7 +81,7 @@ class Bigram:
 
 	def onehot(self, keys):
 		samples = len(keys)
-		vectors = np.zeros((samples,self.V))
+		vectors = np.zeros((samples,self.V)).astype(np.float64)
 		for i in xrange(samples):
 			vectors[i,keys[i]] = 1.0
 		return vectors
@@ -161,7 +161,7 @@ X = data[:-1]
 y = data[1:]
 # Hiperparametros
 D = 300
-eta = 15
+eta = 3.0
 batch_size = 500
 epochs = 50
 # Criando o modelo

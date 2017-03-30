@@ -37,35 +37,41 @@ class Bigram:
 			# X, y = shuffle(X, y, random_state=0)
 			
 			#para treinar a rede nessa época
-			train_data = self.onehot(X[idx:idx+batch_size])
-			train_label = self.onehot(y[idx:idx+batch_size])
+			data = X[idx:idx+batch_size]
+			label = y[idx:idx+batch_size]
+			train_data = self.onehot(data)
+			train_label = self.onehot(label)
+	
 			#Resetar o contador quando idx == samples
 			idx += batch_size
 			idx = idx%samples
 
 			#Foward propagation
-			z1 = np.dot(train_data,self.W_ih)
+			z1 = self.W_ih[data,:]
 			z2 = np.dot(z1,self.W_ho)
 			a2 = self.activation(z2, "softmax")
 
 			#Calcular o erro
 			loss = 0.0
-			for sample, idx in enumerate(train_label.argmax(axis=1)):
+			for sample, idx in enumerate(label):
 				loss -= np.log(a2[sample,idx])
+				a2[sample,idx] -= 1
 			loss /= batch_size
 			print('epoch: {}    loss: {}'.format(str(epoch), str(loss)))
 
 			#Backprop
-			error_a2 = a2 - train_label
+			error_a2 = a2
 			dW_ho = z1.T.dot(error_a2)
 			error_z1 = error_a2.dot(self.W_ho.T)
+			#Nao sei como mapear esta conta, entao ainda
+			#tive que utilizar o train_data
 			dW_ih = train_data.T.dot(error_z1)
 
 			self.W_ho -= self.eta*dW_ho/batch_size
 			self.W_ih -= self.eta*dW_ih/batch_size
 			# #Truncar para evitar overflow
-			self.W_ho = np.clip(self.W_ho, -0.5, 0.5)
-			self.W_ih = np.clip(self.W_ih, -0.5, 0.5)
+			# self.W_ho = np.clip(self.W_ho, -0.5, 0.5)
+			# self.W_ih = np.clip(self.W_ih, -0.5, 0.5)
 
 			epoch += 1
 		print self.W_ih
@@ -147,11 +153,11 @@ def build_dataset(words, vocabulary_size):
 
 # Get corpus text
 import zipfile
-with zipfile.ZipFile('text8.zip', 'r') as myzip:
-    read_data = myzip.read('text8').split()
+with zipfile.ZipFile('input.zip', 'r') as myzip:
+    read_data = myzip.read('input').split()
 
 # Tamanho do vocabulário:
-V = 10000
+V = 1000
 # Preprocessamento do corpus
 data, count, dictionary, reverse_dictionary = build_dataset(read_data, V)
 # Transformar data em numpy array para otimizar as contas
@@ -160,10 +166,10 @@ data = np.array(data)
 X = data[:-1]
 y = data[1:]
 # Hiperparametros
-D = 300
-eta = 3.0
-batch_size = 500
-epochs = 50
+D = 200
+eta = 3
+batch_size = 200
+epochs = 500
 # Criando o modelo
 Model = Bigram(V,D,eta)
 Model.fit(X,y,batch_size,epochs)

@@ -69,6 +69,8 @@ class Bigram:
 
 			self.W_ho -= self.eta*dW_ho/batch_size
 			self.W_ih -= self.eta*dW_ih/batch_size
+
+
 			# #Truncar para evitar overflow
 			# self.W_ho = np.clip(self.W_ho, -0.5, 0.5)
 			# self.W_ih = np.clip(self.W_ih, -0.5, 0.5)
